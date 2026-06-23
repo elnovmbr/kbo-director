@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>다수결 감독 - 기능 업그레이드판</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Malgun Gothic', sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: #f1f2f6;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 인트로 화면 스타일 */
+        #intro-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            cursor: pointer;
+            user-select: none;
+            transition: opacity 0.5s ease, visibility 0.5s;
+            padding: 20px;
+        }
+        
+        #intro-overlay.fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .intro-text {
+            font-size: 28px;
+            font-weight: bold;
+            color: #000000;
+            text-align: center;
+            line-height: 1.6;
+            word-break: keep-all;
+        }
+
+        .text-red {
+            color: #ff4757;
+        }
+
+        /* 사이드바 스타일 */
+        .sidebar {
+            width: 260px;
+            background-color: #1e272e;
+            color: white;
+            padding: 20px;
+            height: 100%;
+            position: fixed;
+            z-index: 10;
+            transition: background-color 0.4s ease;
+        }
+
+        .sidebar h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #00d2d3;
+            text-align: center;
+            transition: color 0.4s ease;
+        }
+
+        .team-selector-box {
+            margin-bottom: 25px;
+        }
+        .team-selector-box label {
+            font-size: 12px;
+            color: #8892b0;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .team-select {
+            width: 100%;
+            padding: 10px;
+            font-size: 15px;
+            background-color: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            outline: none;
+        }
+        .team-select option {
+            background-color: #1e272e;
+            color: white;
+        }
+
+        .menu-list {
+            list-style: none;
+        }
+
+        .menu-item {
+            padding: 15px 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: 0.3s;
+            color: #dcdde1;
+        }
+
+        .menu-item.active, .menu-item:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            font-weight: bold;
+        }
+
+        /* 메인 콘텐츠 스타일 */
+        .main-content {
+            margin-left: 260px;
+            flex-grow: 1;
+            padding: 30px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-content {
+            display: none;
+            height: 100%;
+        }
+
+        .page-content.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            transition: color 0.4s ease;
+        }
+
+        .match-info {
+            font-size: 16px;
+            color: #57606f;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        /* 공통 분할 레이아웃 */
+        .split-container {
+            display: flex;
+            gap: 20px;
+            flex-grow: 1;
+            height: calc(100vh - 160px);
+        }
+
+        .left-slots {
+            flex: 1;
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            overflow-y: auto;
+        }
+
+        .right-players {
+            flex: 1;
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            overflow-y: auto;
+        }
+
+        .section-subtitle {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f1f2f6;
+            color: #2f3542;
+        }
+
+        /* 슬롯 디자인 */
+        .slot-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            background-color: #f8f9fa;
+            border: 1px dashed #ced6e0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+        }
+        .slot-row:hover {
+            background-color: #e1e8f0;
+        }
+        .slot-label {
+            font-weight: bold;
+            width: 120px;
+            transition: color 0.4s ease;
+        }
+        .slot-content {
+            font-size: 15px;
+            color: #747d8c;
+            flex-grow: 1;
+        }
+        
+        .selected-target {
+            background-color: #fff3cd !important;
+            border: 2px solid #ffc107 !important;
+        }
+
+        .filled {
+            background-color: #e3fafc;
+            border: 1px solid #00d2d3;
+        }
+        .filled .slot-content {
+            color: #2f3542;
+            font-weight: bold;
+        }
+
+        /* 🆕 취소 버튼 [X] 스타일 */
+        .cancel-btn {
+            background: none;
+            border: none;
+            color: #ff4757;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0 5px;
+            display: none; /* 기본 숨김 */
+        }
+        .filled .cancel-btn {
+            display: block; /* 선수가 차면 노출 */
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            color: white;
+            border: none;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            background-color: #747d8c;
+            transition: background-color 0.4s ease;
+        }
+
+        /* 선수 행 디자인 */
+        .player-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            background-color: white;
+            border: 1px solid #dfe4ea;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .player-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .player-name-box {
+            display: flex;
+            align-items: center;
+        }
+        .player-main-name {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .player-sub-stats {
+            font-size: 13px;
+            color: #747d8c;
+            margin-top: 2px;
+        }
+
+        .position-badge {
+            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 6px;
+            color: white;
+        }
+        .bg-pitcher { background-color: #574b90; }
+        .bg-catcher { background-color: #ff9f43; }
+        .bg-hitter { background-color: #1dd1a1; }
+
+        .sm-btn {
+            background-color: #747d8c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.4s ease;
+        }
+        
+        .empty-notice {
+            color: #a4b0be;
+            text-align: center;
+            padding: 40px 0;
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="intro-overlay" onclick="hideIntro()">
+        <div class="intro-text">
+            <span class="text-red">감독</span>이 하는 행동이 <span class="text-red">마음에 들지 않는</span> KBO 10개구단 팬여러분 직접 <span class="text-red">감독</span>이 되보세요
+        </div>
+    </div>
+
+    <div class="sidebar" id="main-sidebar">
+        <h1 id="sidebar-logo-text">⚾ 다수결 감독</h1>
+        <div class="team-selector-box">
+            <label>지휘할 구단 선택</label>
+            <select class="team-select" id="team-choice" onchange="changeTeam()">
+                <option value="" selected disabled>--- 구단 선택 ---</option>
+                <option value="LG">LG 트윈스</option>
+                <option value="KIA">KIA 타이거즈</option>
+                <option value="SSG">SSG 랜더스</option>
+                <option value="kt">kt 위즈</option>
+                <option value="NC">NC 다이노스</option>
+                <option value="두산">두산 베어스</option>
+                <option value="삼성">삼성 라이온즈</option>
+                <option value="키움">키움 히어로즈</option>
+                <option value="한화">한화 이글스</option>
+                <option value="롯데">롯데 자이언츠</option>
+            </select>
+        </div>
+        <ul class="menu-list">
+            <li class="menu-item" onclick="switchPage('home', this)">🔥 오늘의 투표</li>
+            <li class="menu-item" onclick="switchPage('pitcher', this)">🧢 투수 선발</li>
+            <li class="menu-item" onclick="switchPage('hitter', this)">🏃 타자 라인업</li>
+            <li class="menu-item" onclick="switchPage('result', this)">📊 투표 결과</li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        
+        <div id="page-welcome" class="page-content active" style="justify-content: center; align-items: center; text-align: center; color: #a4b0be;">
+            <h2 style="margin-bottom: 10px; color: #2f3542;">시작 대기 중</h2>
+            <p>좌측 상단에서 구단을 선택하고, 아래 메뉴 탭을 클릭하여 투표를 진행해 주세요!</p>
+        </div>
+        
+        <div id="page-home" class="page-content">
+            <div class="header-title" id="home-title"><span class="team-display">구단 미선택</span> - 투표 홈</div>
+            <div class="match-info">원하시는 메뉴를 왼쪽 사이드바에서 선택해 주세요!</div>
+        </div>
+
+        <div id="page-pitcher" class="page-content">
+            <div class="header-title" id="pitcher-title">오늘의 투수진 투표 (<span class="team-display">구단 미선택</span>)</div>
+            <div class="match-info" id="p-guide" style="color: #ff4757; font-weight: bold;">👉 방법: 왼쪽에서 보직(선발/중간/마무리)을 먼저 클릭하세요!</div>
+            
+            <div class="split-container">
+                <div class="left-slots">
+                    <div class="section-subtitle">📋 선발/중계/마무리 구성</div>
+                    <div class="slot-row" id="p-slot-1" onclick="clickPitcherSlot(1)"><div class="slot-label p-label-target">선발 투수</div><div class="slot-content" id="p-text-1">선택 대기 중...</div><button class="cancel-btn" onclick="cancelPitcherSlot(event, 1)">✕</button></div>
+                    <div class="slot-row" id="p-slot-2" onclick="clickPitcherSlot(2)"><div class="slot-label p-label-target">중간 투수</div><div class="slot-content" id="p-text-2">선택 대기 중...</div><button class="cancel-btn" onclick="cancelPitcherSlot(event, 2)">✕</button></div>
+                    <div class="slot-row" id="p-slot-3" onclick="clickPitcherSlot(3)"><div class="slot-label p-label-target">마무리 투수</div><div class="slot-content" id="p-text-3">선택 대기 중...</div><button class="cancel-btn" onclick="cancelPitcherSlot(event, 3)">✕</button></div>
+                    <button class="submit-btn theme-btn-target" onclick="submitPitchers()">투수진 투표 제출하기</button>
+                </div>
+                <div class="right-players">
+                    <div class="section-subtitle">🧢 등록 가능한 투수 명단 (<span id="p-count">0</span>명)</div>
+                    <div id="pitcher-list-box">
+                        <div class="empty-notice">좌측 상단에서 구단을 먼저 선택해 주세요.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-hitter" class="page-content">
+            <div class="header-title" id="hitter-title">오늘의 타자 라인업 투표 (<span class="team-display">구단 미선택</span>)</div>
+            <div class="match-info" id="h-guide" style="color: #ff4757; font-weight: bold;">👉 방법: 왼쪽에서 배치할 타순(1~9)을 먼저 클릭하세요!</div>
+            
+            <div class="split-container">
+                <div class="left-slots">
+                    <div class="section-subtitle">📋 1번~9번 타순 구성</div>
+                    <div class="slot-row" id="h-slot-1" onclick="clickHitterSlot(1)"><div class="slot-label h-label-target">1번 타자</div><div class="slot-content" id="h-text-1">선택 대기 중...</div><button class="cancel-btn" onclick="cancelHitterSlot(event, 1)">✕</button></div>
+                    <div class="slot-row" id="h-slot-2" onclick="clickHitterSlot(2)"><div class="slot-label h-label-target">2번 타자</div><div class="slot-content" id="h-text-2">선택 대기 중...</div><button class="cancel-btn" onclick="cancelHitterSlot(event, 2)">✕</button></div>
+                    <div class="slot-row" id="h-slot-3" onclick="clickHitterSlot(3)"><div class="slot-label h-label-target">3번 타자</div><div class="slot-content" id="h-text-3">선택 대기 중...</div><button class="cancel-btn" onclick="cancelHitterSlot(event, 3)">✕</button></div>
+                    <div class="slot-row" id="h-slot-4" onclick="clickHitterSlot(4)"><div class="slot-label h-label-target">4번 타자</div><div class="slot-content" id="h-text-4">선택 대기 중...</div><button class="cancel-btn" onclick="cancelHitterSlot(event, 4)">✕</button></div>
+                    <div class="slot-row" id="h-slot-5" onclick="clickHitterSlot(5)"><div class="slot-label h-label-target">5번 타자</div><div class="slot-content" id="h-text-5">선택 대기 중...</div><button class="cancel-btn" onclick="cancelHitterSlot(event, 5)">✕</button></div>
+                    <div class="slot-row" id="h-slot-6" onclick="clickHitterSlot(6)"><div class="slot-label h-label-target">6번 타자</div><div class="slot-content" id="h-text-6">선택 대기 중...</div><button class="cancel-btn" onclick="cancelHitterSlot(event, 6)">✕</button></div>
+                    <div class="slot-row" id="h-slot-7" onclick="clickHitterSlot(7)"><div class="slot-label h-label-target">7번 타자</div><div class="slot-content" id="h-text-7">선택 대기 중...</div><button class="cancel-btn" onclick="cancelHitterSlot(event, 7)">✕</button></div>
+                    <div class="slot-row" id="h-slot-8" onclick="clickHitterSlot(8)"><div class="slot-label h-label-target">8번 타자</div><div class="slot-content" id="h-text-8">선택 대기 중...</div><button class="cancel-btn" onclick="cancelHitterSlot(event, 8)">✕</button></div>
+                    <div class="slot-row" id="h-slot-9" onclick="clickHitterSlot(9)"><div class="slot-label h-label-target">9번 지명타자(DH)</div><div class="slot-content" id="h-text-9">선택 대기 중...</div><button class="cancel-btn" onclick="cancelHitterSlot(event, 9)">✕</button></div>
+                    <button class="submit-btn theme-btn-target" onclick="submitHitters()">라인업 제출하기</button>
+                </div>
+                <div class="right-players">
+                    <div class="section-subtitle">🏃 등록 가능한 타자 & 포수 명단</div>
+                    <div id="hitter-list-box">
+                        <div class="empty-notice">좌측 상단에서 구단을 먼저 선택해 주세요.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-result" class="page-content">
+            <div class="header-title">투표 결과</div>
+            <div style="background-color: white; padding: 20px; border-radius: 10px;">결과창 준비 중...</div>
+        </div>
+    </div>
+
+    <script>
+        let pSelectedSlot = null;
+        let hSelectedSlot = null;
+        
+        // 데이터 정합성을 위해 객체 구조 세분화 (선수이름, 포지션 저장)
+        let pState = { 1: null, 2: null, 3: null };
+        let hState = { 
+            1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null, 8: null, 
+            9: null /* 지명타자 */ 
+        };
+
+        const teamColors = {
+            "LG": "#a50034", "KIA": "#c70125", "SSG": "#ce0e2d", "kt": "#000000", "NC": "#1d427a",
+            "두산": "#0a172c", "삼성": "#074ca1", "키움": "#570014", "한화": "#d35400", "롯데": "#002c5f"
+        };
+
+        const teamData = {
+            "두산": {
+                name: "두산 베어스",
+                pitchers: [
+                    { name: "박치국", info: "No.1 / 투수" }, { name: "김동주", info: "No.4 / 투수" },
+                    { name: "타카다 타쿠토", info: "No.12 / 투수" }, { name: "최주형", info: "No.15 / 투수" },
+                    { name: "김정우", info: "No.16 / 투수" }, { name: "박정수", info: "No.17 / 투수" },
+                    { name: "김민규", info: "No.19 / 투수" }, { name: "김영현", info: "No.20 / 투수" },
+                    { name: "최승용", info: "No.28 / 투수" }, { name: "이병헌", info: "No.29 / 투수" },
+                    { name: "양재훈", info: "No.30 / 투수" }, { name: "이주호", info: "No.35 / 투수" },
+                    { name: "잭 로그", info: "No.39 / 투수" }, { name: "최종인", info: "No.40 / 투수" },
+                    { name: "서준오", info: "No.41 / 투수" }, { name: "최지강", info: "No.42 / 투수" },
+                    { name: "이주엽", info: "No.43 / 투수" }, { name: "이용찬", info: "No.45 / 투수" },
+                    { name: "김명신", info: "No.46 / 투수" }, { name: "곽빈", info: "No.47 / 투수" },
+                    { name: "웨스 벤자민", info: "No.48 / 투수" }, { name: "박신지", info: "No.49 / 투수" },
+                    { name: "이영하", info: "No.50 / 투수" }, { name: "김유성", info: "No.55 / 투수" },
+                    { name: "김호준", info: "No.56 / 투수" }, { name: "최준호", info: "No.59 / 투수" },
+                    { name: "최원준", info: "No.61 / 투수" }, { name: "김택연", info: "No.63 / 투수" },
+                    { name: "윤태호", info: "No.65 / 투수" }, { name: "최민석", info: "No.68 / 투수" },
+                    { name: "크리스 플렉센", info: "No.77 / 투수" }, { name: "김한중", info: "No.95 / 투수" },
+                    { name: "최우인", info: "No.101 / 투수" }, { name: "김지윤", info: "No.104 / 투수" }
+                ],
+                hitters: [
+                    { name: "양의지", info: "No.25 / 포수", pos: "포수" }, { name: "김기연", info: "No.22 / 포수", pos: "포수" },
+                    { name: "박민준", info: "No.26 / 포수", pos: "포수" }, { name: "윤준호", info: "No.27 / 포수", pos: "포수" },
+                    { name: "류현준", info: "No.67 / 포수", pos: "포수" }, { name: "양석환", info: "No.53 / 내야수", pos: "내야수" },
+                    { name: "강승호", info: "No.23 / 내야수", pos: "내야수" }, { name: "이유찬", info: "No.13 / 내야수", pos: "내야수" },
+                    { name: "박찬호", info: "No.7 / 내야수", pos: "내야수" }, { name: "박준순", info: "No.52 / 내야수", pos: "내야수" },
+                    { name: "안재석", info: "No.62 / 내야수", pos: "내야수" }, { name: "김민혁", info: "No.10 / 내야수", pos: "내야수" },
+                    { name: "박지훈", info: "No.37 / 내야수", pos: "내야수" }, { name: "김동준", info: "No.11 / 내야수", pos: "내야수" },
+                    { name: "임종성", info: "No.3 / 내야수", pos: "내야수" }, { name: "박성재", info: "No.5 / 내야수", pos: "내야수" },
+                    { name: "오명진", info: "No.6 / 내야수", pos: "내야수" }, { name: "심건보", info: "No.117 / 내야수", pos: "내야수" },
+                    { name: "정수빈", info: "No.31 / 외야수", pos: "외야수" }, { name: "다즈 카메론", info: "No.24 / 외야수", pos: "외야수" },
+                    { name: "조수행", info: "No.51 / 외야수", pos: "외야수" }, { name: "김인태", info: "No.33 / 외야수", pos: "외야수" },
+                    { name: "손아섭", info: "No.8 / 외야수", pos: "외야수" }, { name: "김대한", info: "No.32 / 외야수", pos: "외야수" },
+                    { name: "김민석", info: "No.2 / 외야수", pos: "외야수" }, { name: "전다민", info: "No.9 / 외야수", pos: "외야수" },
+                    { name: "류승민", info: "No.14 / 외야수", pos: "외야수" }, { name: "홍성호", info: "No.34 / 외야수", pos: "외야수" },
+                    { name: "김주오", info: "No.66 / 외야수", pos: "외야수" }
+                ]
+            },
+            "삼성": {
+                name: "삼성 라이온즈",
+                pitchers: [],
+                hitters: [
+                    { name: "디아즈", info: "No.0 / 내야수", pos: "내야수" }, { name: "김재성", info: "No.2 / 포수", pos: "포수" },
+                    { name: "이해승", info: "No.3 / 내야수", pos: "내야수" }, { name: "구자욱", info: "No.5 / 외야수", pos: "외야수" },
+                    { name: "심재훈", info: "No.6 / 내야수", pos: "내야수" }, { name: "이재현", info: "No.7 / 내야수", pos: "내야수" },
+                    { name: "김재혁", info: "No.8 / 외야수", pos: "외야수" }, { name: "박계범", info: "No.9 / 내야수", pos: "내야수" },
+                    { name: "박진우", info: "No.12 / 포수", pos: "포수" }, { name: "이성규", info: "No.13 / 외야수", pos: "외야수" },
+                    { name: "김재상", info: "No.14 / 내야수", pos: "내야수" }, { name: "류지혁", info: "No.16 / 내야수", pos: "내야수" },
+                    { name: "이병헌", info: "No.23 / 포수", pos: "포수" }, { name: "김도환", info: "No.24 / 포수", pos: "포수" },
+                    { name: "김태훈", info: "No.25 / 외야수", pos: "외야수" }, { name: "김영웅", info: "No.30 / 내야수", pos: "내야수" },
+                    { name: "윤정빈", info: "No.31 / 외야수", pos: "외야수" }, { name: "김헌곤", info: "No.32 / 외야수", pos: "외야수" },
+                    { name: "최형우", info: "No.34 / 외야수", pos: "외야수" }, { name: "차승준", info: "No.35 / 내야수", pos: "내야수" },
+                    { name: "김성윤", info: "No.39 / 외야수", pos: "외야수" }, { name: "함수호", info: "No.40 / 외야수", pos: "외야수" },
+                    { name: "장승현", info: "No.46 / 포수", pos: "포수" }, { name: "강민호", info: "No.47 / 포수", pos: "포수" },
+                    { name: "이창용", info: "No.50 / 내야수", pos: "내야수" }, { name: "홍현빈", info: "No.51 / 외야수", pos: "외야수" },
+                    { name: "박세혁", info: "No.52 / 포수", pos: "포수" }, { name: "양우현", info: "No.53 / 내야수", pos: "내야수" },
+                    { name: "김상준", info: "No.56 / 내야수", pos: "내야수" }, { name: "김지찬", info: "No.58 / 외야수", pos: "외야수" },
+                    { name: "전병우", info: "No.61 / 내야수", pos: "내야수" }, { name: "박승규", info: "No.66 / 외야수", pos: "외야수" }
+                ]
+            }
+        };
+
+        function hideIntro() {
+            const intro = document.getElementById('intro-overlay');
+            intro.classList.add('fade-out');
+            setTimeout(() => { intro.style.display = 'none'; }, 500);
+        }
+
+        /* --- 투수 기능 로직 --- */
+        function clickPitcherSlot(num) {
+            if (!document.getElementById('team-choice').value) { alert("구단을 먼저 선택해 주세요!"); return; }
+            if (pState[num]) return; // 이미 선수가 있으면 선택창 활성화 안 함
+            for(let i=1; i<=3; i++) document.getElementById('p-slot-'+i).classList.remove('selected-target');
+            pSelectedSlot = num;
+            document.getElementById('p-slot-'+num).classList.add('selected-target');
+            const label = num==1?'선발':num==2?'중간':'마무리';
+            document.getElementById('p-guide').innerText = `🎯 [${label}] 보직 선택 중! 오른쪽 명단에서 투수를 클릭하세요.`;
+        }
+
+        function assignPitcher(name) {
+            if (!pSelectedSlot) { alert("왼쪽 보직을 먼저 골라주세요!"); return; }
+            for (let i in pState) {
+                if (pState[i] && pState[i].name === name) {
+                    alert(`🚨 ${name} 투수는 이미 다른 보직에 배치되어 있습니다!`); return;
+                }
+            }
+            const slot = document.getElementById('p-slot-' + pSelectedSlot);
+            slot.classList.remove('selected-target'); slot.classList.add('filled');
+            document.getElementById('p-text-' + pSelectedSlot).innerText = name;
+            pState[pSelectedSlot] = { name: name }; pSelectedSlot = null;
+            document.getElementById('p-guide').innerText = "👉 방법: 왼쪽에서 보직(선발/중간/마무리)을 먼저 클릭하세요!";
+        }
+
+        // 🆕 투수 취소 기능 구현
+        function cancelPitcherSlot(event, num) {
+            event.stopPropagation(); // 부모 Row 클릭 이벤트 발생 방지
+            const slot = document.getElementById('p-slot-' + num);
+            slot.classList.remove('filled', 'selected-target');
+            document.getElementById('p-text-' + num).innerText = "선택 대기 중...";
+            pState[num] = null;
+            if(pSelectedSlot === num) pSelectedSlot = null;
+            document.getElementById('p-guide').innerText = "👉 방법: 왼쪽에서 보직(선발/중간/마무리)을 먼저 클릭하세요!";
+        }
+
+        function submitPitchers() {
+            if(!pState[1] || !pState[2] || !pState[3]) {
+                alert("🚨 모든 보직(선발, 중간, 마무리)의 투수를 완전히 배치해 주세요!");
+                return;
+            }
+            alert('투수진 투표 완료!');
+        }
+
+        /* --- 타자 기능 로직 --- */
+        function clickHitterSlot(num) {
+            if (!document.getElementById('team-choice').value) { alert("구단을 먼저 선택해 주세요!"); return; }
+            if (hState[num]) return; // 이미 선수가 채워져 있으면 무시
+            for(let i=1; i<=9; i++) {
+                const s = document.getElementById('h-slot-'+i);
+                if(s) s.classList.remove('selected-target');
+            }
+            hSelectedSlot = num;
+            document.getElementById('h-slot-'+num).classList.add('selected-target');
+            const label = num === 9 ? '9번 지명타자' : `${num}번 타자`;
+            document.getElementById('h-guide').innerText = `🎯 [${label}] 선택 중! 오른쪽 명단에서 선수를 클릭하세요.`;
+        }
+
+        function assignHitter(name, pos) {
+            if (!hSelectedSlot) { alert("왼쪽 타순을 먼저 골라주세요!"); return; }
+            for (let i in hState) {
+                if (hState[i] && hState[i].name === name) {
+                    alert(`🚨 ${name} 선수는 이미 ${i}번 타순에 배치되어 있습니다!`); return;
+                }
+            }
+            const slot = document.getElementById('h-slot-' + hSelectedSlot);
+            slot.classList.remove('selected-target'); slot.classList.add('filled');
+            document.getElementById('h-text-' + hSelectedSlot).innerText = `[${pos}] ${name}`;
+            
+            // 포지션 정보를 포함해 저장 (포수 제한 검증용)
+            hState[hSelectedSlot] = { name: name, pos: pos }; 
+            hSelectedSlot = null;
+            document.getElementById('h-guide').innerText = "👉 방법: 왼쪽에서 배치할 타순(1~9)을 먼저 클릭하세요!";
+        }
+
+        // 🆕 타자 취소 기능 구현
+        function cancelHitterSlot(event, num) {
+            event.stopPropagation(); // 부모 Row 클릭 이벤트 방지
+            const slot = document.getElementById('h-slot-' + num);
+            slot.classList.remove('filled', 'selected-target');
+            document.getElementById('h-text-' + num).innerText = "선택 대기 중...";
+            hState[num] = null;
+            if(hSelectedSlot === num) hSelectedSlot = null;
+            document.getElementById('h-guide').innerText = "👉 방법: 왼쪽에서 배치할 타순(1~9)을 먼저 클릭하세요!";
+        }
+
+        // 🆕 타자 라인업 검증 및 제출 로직
+        function submitHitters() {
+            // 1. 모든 자리가 찼는지 먼저 확인
+            for(let i=1; i<=9; i++) {
+                if(!hState[i]) {
+                    alert("🚨 1번부터 9번까지 모든 타순을 빈틈없이 채워야 합니다!");
+                    return;
+                }
+            }
+
+            // 2. 🚫 포수 슬롯 검증 제한 로직 (최소 1명 필수 포함)
+            let hasCatcher = false;
+            for(let i=1; i<=9; i++) {
+                if(hState[i] && hState[i].pos === "포수") {
+                    hasCatcher = true;
+                    break;
+                }
+            }
+
+            if(!hasCatcher) {
+                alert("🚫 [포수 필수] 라인업 내에 최소 1명 이상의 포수 포지션 선수가 포함되어야 제출할 수 있습니다!");
+                return;
+            }
+
+            alert('라인업 투표 완료!');
+        }
+
+        function changeTeam() {
+            const teamKey = document.getElementById('team-choice').value;
+            if (!teamKey) return;
+
+            const selectEl = document.getElementById('team-choice');
+            const fullName = selectEl.options[selectEl.selectedIndex].text;
+            
+            document.querySelectorAll('.team-display').forEach(el => el.innerText = fullName);
+
+            const themeColor = teamColors[teamKey] || "#1e272e";
+            
+            document.getElementById('main-sidebar').style.backgroundColor = themeColor;
+            document.getElementById('sidebar-logo-text').style.color = (themeColor === "#000000" || themeColor === "#0a172c") ? "#00d2d3" : "#ffffff";
+            
+            document.getElementById('home-title').style.color = themeColor;
+            document.getElementById('pitcher-title').style.color = themeColor;
+            document.getElementById('hitter-title').style.color = themeColor;
+            
+            document.querySelectorAll('.p-label-target, .h-label-target').forEach(el => {
+                el.style.color = themeColor;
+            });
+
+            document.querySelectorAll('.theme-btn-target').forEach(el => {
+                el.style.backgroundColor = themeColor;
+            });
+
+            // 구단이 바뀌면 기존 선택되어 있던 모든 슬롯 초기화
+            for(let i=1; i<=3; i++) cancelPitcherSlot({ stopPropagation:()=>{} }, i);
+            for(let i=1; i<=9; i++) cancelHitterSlot({ stopPropagation:()=>{} }, i);
+
+            const team = teamData[teamKey];
+            
+            if (team) {
+                document.getElementById('p-count').innerText = team.pitchers.length;
+                
+                let pHTML = '';
+                if(team.pitchers.length > 0) {
+                    team.pitchers.forEach(p => {
+                        pHTML += `<div class="player-row"><div class="player-info"><div class="player-name-box"><span class="position-badge bg-pitcher">투수</span><span class="player-main-name">${p.name}</span></div><span class="player-sub-stats">${p.info}</span></div><button class="sm-btn" style="background-color: ${themeColor}" onclick="assignPitcher('${p.name}')">배치</button></div>`;
+                    });
+                } else {
+                    pHTML = `<div class="empty-notice">${fullName}의 투수 명단 준비 중입니다.</div>`;
+                }
+                document.getElementById('pitcher-list-box').innerHTML = pHTML;
+
+                let hHTML = '';
+                if(team.hitters.length > 0) {
+                    team.hitters.forEach(h => {
+                        const bClass = h.pos === "포수" ? "bg-catcher" : "bg-hitter";
+                        hHTML += `<div class="player-row"><div class="player-info"><div class="player-name-box"><span class="position-badge ${bClass}">${h.pos}</span><span class="player-main-name">${h.name}</span></div><span class="player-sub-stats">${h.info}</span></div><button class="sm-btn" style="background-color: ${themeColor}" onclick="assignHitter('${h.name}', '${h.pos}')">배치</button></div>`;
+                    });
+                } else {
+                    hHTML = `<div class="empty-notice">${fullName}의 타자 명단 준비 중입니다.</div>`;
+                }
+                document.getElementById('hitter-list-box').innerHTML = hHTML;
+            } else {
+                document.getElementById('p-count').innerText = "0";
+                document.getElementById('pitcher-list-box').innerHTML = `<div class="empty-notice">${fullName}의 투수 명단 준비 중입니다.</div>`;
+                document.getElementById('hitter-list-box').innerHTML = `<div class="empty-notice">${fullName}의 타자 명단 준비 중입니다.</div>`;
+            }
+        }
+
+        function switchPage(pageId, menuItem) {
+            if(document.getElementById('page-welcome')) {
+                document.getElementById('page-welcome').classList.remove('active');
+            }
+            document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+            
+            document.getElementById('page-' + pageId).classList.add('active');
+            menuItem.classList.add('active');
+        }
+    </script>
+</body>
+</html>
